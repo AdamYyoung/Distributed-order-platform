@@ -1,0 +1,89 @@
+server:
+  port: 8081
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+  instance:
+    hostname: localhost
+
+spring:
+  application:
+    name: order-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  datasource:
+    url: jdbc:mysql://localhost:3307/testdb?useSSL=false&serverTimezone=UTC
+    username: ${root}
+    password: ${password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      acks: all
+      retries: 3
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      batch-size: 16384
+      buffer-memory: 33554432
+      properties:
+        linger.ms: 5
+      compression-type: zstd
+
+    consumer:
+      group-id: seckill-group
+      auto-offset-reset: latest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer  # deserialize
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
+      enable-auto-commit: false
+      max-poll-records: 500
+
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productService:
+        sliding-window-size: 10
+        failure-rate-threshold: 50             # 50%
+        wait-duration-in-open-state: 10000     # 10s
+        permitted-number-of-calls-in-half-open-state: 3
+      inventoryService:
+        sliding-window-size: 10
+        failure-rate-threshold: 50             # 50%
+        wait-duration-in-open-state: 10000     # 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  ratelimiter:
+    instances:
+      productApi:
+        limit-for-period: 1000
+        limit-refresh-period: 1s
+      inventoryApi:
+        limit-for-period: 1000
+        limit-refresh-period: 1s
+  retry:
+    instances:
+      notificationService:
+        max-attempts: 3
+        wait-duration: 2s
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+          - org.springframework.web.client.HttpServerErrorException
+          - org.springframework.web.client.ResourceAccessException
+          - java.io.IOException
+        ignore-exceptions:
+          - org.commonlib.Exception.BizException
+
+
+
+
